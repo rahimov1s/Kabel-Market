@@ -1,0 +1,27 @@
+{
+  "adminPasswordHash": "$2a$10$PU/kA6DaBAqJj6GrlSdDMeUMdzRCPVgNbawWIhbz.EZBXgK3/09em",
+  "products": [
+    {
+      "id": 1,
+      "title": "Кабель ВВГнг-LS 3х2.5",
+      "brand": "ВВГнг-LS",
+      "cores": 3,
+      "section": "2.5",
+      "material": "Медь",
+      "price": 12.5,
+      "unit": "сом/м",
+      "image": "https://via.placeholder.com/300x200?text=Кабель+ВВГ"
+    },
+    {
+      "id": 1787482223254,
+      "title": "Кабель ВВГнг-LS 4х2.5",
+      "brand": "ВВГнг-LS",
+      "cores": 4,
+      "section": "2.5",
+      "material": "Медь",
+      "price": 333,
+      "unit": "сом/м",
+      "image": "https://via.placeholder.com/300x200?text=Нет+Фото"
+    }
+  ]
+}
