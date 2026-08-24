@@ -1,16 +1,13 @@
-﻿const express = require("express");
+﻿ const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
 const bcrypt = require("bcryptjs");
 const path = require("path");
 const fs = require("fs");
-
 const app = express();
 const PORT = 3000;
-
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
 const dataFile = path.join(__dirname, "data.json");
 if (!fs.existsSync(dataFile)) {
   const initialData = {
@@ -32,41 +29,33 @@ if (!fs.existsSync(dataFile)) {
   };
   fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
 }
-
 function getData() {
   return JSON.parse(fs.readFileSync(dataFile));
 }
-
 function saveData(data) {
   fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
 }
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(uploadDir));
-
 app.use(session({
   secret: "kabel_super_secret_key",
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 3600000 * 24 }
 }));
-
 function checkAuth(req, res, next) {
   if (req.session.isAdmin) next();
   else res.status(401).json({ error: "Auth error" });
 }
-
 app.get("/api/products", (req, res) => {
   const { search, brand, cores, material } = req.query;
   let { products } = getData();
-
   if (search) {
     const q = search.toLowerCase();
     products = products.filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
@@ -74,10 +63,8 @@ app.get("/api/products", (req, res) => {
   if (brand) products = products.filter(p => p.brand === brand);
   if (cores) products = products.filter(p => String(p.cores) === String(cores));
   if (material) products = products.filter(p => p.material === material);
-
   res.json(products);
 });
-
 app.post("/api/login", (req, res) => {
   const { password } = req.body;
   if (bcrypt.compareSync(password, getData().adminPasswordHash)) {
@@ -87,17 +74,14 @@ app.post("/api/login", (req, res) => {
     res.status(400).json({ error: "Неверный пароль" });
   }
 });
-
 app.post("/api/logout", (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
-
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
   const data = getData();
   const { id, title, brand, cores, section, material, price, unit, description } = req.body;
   let imageUrl = req.file ? "/uploads/" + req.file.filename : null;
-
   if (id) {
     const idx = data.products.findIndex(p => p.id == id);
     if (idx !== -1) {
@@ -114,18 +98,15 @@ app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => 
       image: imageUrl || "https://via.placeholder.com/300x200?text=Нет+Фото"
     });
   }
-
   saveData(data);
   res.json({ success: true });
 });
-
 app.delete("/api/products/:id", checkAuth, (req, res) => {
   const data = getData();
   data.products = data.products.filter(p => p.id != req.params.id);
   saveData(data);
   res.json({ success: true });
 });
-
 app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="ru">
@@ -138,9 +119,17 @@ app.get("*", (req, res) => {
  <body class="bg-[#FDFBF7] text-[#2D3748] font-sans antialiased min-h-screen">
   <header class="bg-white border-b border-[#E5E7EB] sticky top-0 z-40 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center space-x-2 cursor-pointer" onclick="resetFilters()">
-        <div class="w-9 h-9 bg-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-xl">Э</div>
-        <span class="text-xl font-bold tracking-tight text-[#1A1A1A]">ЭлектроКабель</span>
+      <div class="flex items-center space-x-3">
+        <!-- Кнопка бургер-меню -->
+        <button onclick="toggleMenu()" class="p-2 rounded-lg hover:bg-gray-100 transition focus:outline-none flex flex-col justify-between w-9 h-9 items-center justify-center">
+          <div class="w-5 h-0.5 bg-[#2D3748] mb-1"></div>
+          <div class="w-5 h-0.5 bg-[#2D3748] mb-1"></div>
+          <div class="w-5 h-0.5 bg-[#2D3748]"></div>
+        </button>
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="resetFilters()">
+          <div class="w-9 h-9 bg-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-xl">Э</div>
+          <span class="text-xl font-bold tracking-tight text-[#1A1A1A]">ЭлектроКабель</span>
+        </div>
       </div>
       <div class="flex-1 max-w-xl">
         <input type="text" id="searchInput" oninput="loadProducts()" placeholder="Поиск кабеля (название, марка)..." class="w-full px-4 py-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D97706] transition">
@@ -148,6 +137,21 @@ app.get("*", (req, res) => {
       <button onclick="toggleAdminModal()" class="px-4 py-2 text-sm font-medium text-[#D97706] border border-[#D97706] rounded-lg hover:bg-[#D97706] hover:text-white transition">Панель Админа</button>
     </div>
   </header>
+  <!-- Затемнение фона и выезжающее меню -->
+  <div id="menuOverlay" onclick="toggleMenu()" class="fixed inset-0 bg-black/40 z-50 hidden transition-opacity"></div>
+  <div id="sideMenu" class="fixed top-0 left-[-300px] w-72 h-full bg-white shadow-2xl z-50 transition-all duration-300 p-6 flex flex-col">
+    <div class="flex justify-between items-center mb-6">
+      <span class="text-lg font-bold text-[#1A1A1A]">Меню</span>
+      <button onclick="toggleMenu()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+    </div>
+    <div class="flex flex-col space-y-3">
+      <a href="#" onclick="alert('Корзина пока пуста'); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] font-medium transition flex items-center gap-3">🛒 Корзина</a>
+      <a href="#" onclick="alert('Раздел в разработке'); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] font-medium transition flex items-center gap-3">❤️ Избранное</a>
+      <a href="#" onclick="alert('Раздел в разработке'); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] font-medium transition flex items-center gap-3">📦 Мои заказы</a>
+      <hr class="my-2 border-gray-100">
+      <a href="#" onclick="toggleAdminModal(); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] text-[#D97706] font-medium transition flex items-center gap-3">⚙️ Панель Админа</a>
+    </div>
+  </div>
   <main class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
     <aside class="w-full md:w-64 bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm h-fit">
       <div class="flex justify-between items-center mb-4">
@@ -167,7 +171,7 @@ app.get("*", (req, res) => {
       <div class="mb-5">
         <label class="block text-sm font-semibold mb-2">Количество жил</label>
         <select id="filterCores" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
-          <option value="">Все</option>
+ <option value="">Все</option>
           <option value="2">2 жилы</option>
           <option value="3">3 жилы</option>
           <option value="4">4 жилы</option>
@@ -200,7 +204,7 @@ app.get("*", (req, res) => {
       <div id="adminControlSection" class="hidden">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-xl font-bold">Управление товарами</h2>
- <button onclick="logout()" class="text-sm text-red-500 hover:underline">Выйти</button>
+          <button onclick="logout()" class="text-sm text-red-500 hover:underline">Выйти</button>
         </div>
         <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4 mb-8 bg-[#F9F6F0] p-4 rounded-xl">
           <input type="hidden" id="pId">
@@ -232,6 +236,19 @@ app.get("*", (req, res) => {
   </div>
   <script>
     let isAdmin = false;
+    // Функция открытия/закрытия бургер-меню
+    function toggleMenu() {
+      const menu = document.getElementById('sideMenu');
+      const overlay = document.getElementById('menuOverlay');
+      if (menu.style.left === '0px') {
+        menu.style.left = '-300px';
+        overlay.classList.add('hidden');
+      } else {
+        menu.style.
+ left = '0px';
+        overlay.classList.remove('hidden');
+      }
+    }
     async function loadProducts() {
       const search = document.getElementById("searchInput").value;
       const brand = document.getElementById("filterBrand").value;
@@ -267,8 +284,7 @@ app.get("*", (req, res) => {
       document.getElementById("filterMaterial").value = "";
       loadProducts();
     }
-    function toggleAdminModal() { document.
- getElementById("adminModal").classList.toggle("hidden"); }
+    function toggleAdminModal() { document.getElementById("adminModal").classList.toggle("hidden"); }
     async function login() {
       const res = await fetch("/api/login", {
         method: "POST",
@@ -308,7 +324,7 @@ app.get("*", (req, res) => {
       document.getElementById("pSection").value = p.section;
       document.getElementById("pMaterial").value = p.material;
       document.getElementById("pPrice").value = p.price;
-      document.getElementById("pUnit").value = p.unit;
+ document.getElementById("pUnit").value = p.unit;
       document.getElementById("pDesc").value = p.description;
     }
     async function deleteProduct(id) {
@@ -333,5 +349,4 @@ app.get("*", (req, res) => {
 </body>
 </html>`);
 });
-
 app.listen(PORT, '0.0.0.0', () => console.log('Сайт запущен на http://localhost:' + PORT));
