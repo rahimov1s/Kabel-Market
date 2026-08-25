@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const path = require("path");
 const fs = require("fs");
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const dataFile = path.join(__dirname, "data.json");
@@ -110,7 +110,7 @@ app.delete("/api/products/:id", checkAuth, (req, res) => {
 });
 app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html>
-<html lang="ru">
+ <html lang="ru">
 <head>
  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
