@@ -24,6 +24,18 @@ if (!fs.existsSync(dataFile)) {
         unit: "сом/м",
         description: "Силовой кабель для внутренней проводки, негорючий. Предназначен для передачи и распределения электроэнергии в стационарных установках на номинальное переменное напряжение 0,66 кВ или 1 кВ.",
         image: "https://via.placeholder.com/300x200?text=Кабель+ВВГ"
+      },
+      {
+        id: 2,
+        title: "Светодиодная лампа LED 10W E27",
+        brand: "LED",
+        cores: 0,
+        section: "E27",
+        material: "Пластик",
+        price: 45.00,
+        unit: "сом/шт",
+        description: "Энергосберегающая светодиодная лампа, цоколь E27, теплый свет. Отлично подходит для бытового освещения.",
+        image: "https://via.placeholder.com/300x200?text=Лампа+LED"
       }
     ]
   };
@@ -95,7 +107,7 @@ app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => 
   } else {
     data.products.push({
       id: Date.now(),
-      title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
+ title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
       image: imageUrl || "https://via.placeholder.com/300x200?text=Нет+Фото"
     });
   }
@@ -132,7 +144,7 @@ app.get("*", (req, res) => {
         </div>
       </div>
       <div class="flex-1 max-w-xl">
-        <input type="text" id="searchInput" oninput="loadProducts()" placeholder="Поиск кабеля (название, марка)..." class="w-full px-4 py-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D97706] transition">
+        <input type="text" id="searchInput" oninput="loadProducts()" placeholder="Поиск товара (кабель, лампа)..." class="w-full px-4 py-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D97706] transition">
       </div>
       <div class="flex items-center gap-3">
         <button onclick="toggleCartModal()" class="relative px-3 py-2 text-sm font-medium text-[#2D3748] border border-[#E5E7EB] bg-[#F9F6F0] rounded-lg hover:bg-gray-100 transition flex items-center gap-2">
@@ -158,27 +170,28 @@ app.get("*", (req, res) => {
       <a href="#" onclick="toggleAdminModal(); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] text-[#D97706] font-medium transition flex items-center gap-3">⚙️ Панель Админа</a>
     </div>
   </div>
-
-  <main class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+ <main class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
     <aside class="w-full md:w-64 bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm h-fit">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-bold text-[#1A1A1A]">Фильтры</h2>
         <button onclick="resetFilters()" class="text-xs text-[#D97706] hover:underline">Сбросить</button>
       </div>
       <div class="mb-5">
-        <label class="block text-sm font-semibold mb-2">Марка</label>
- <select id="filterBrand" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
+        <label class="block text-sm font-semibold mb-2">Марка / Тип</label>
+        <select id="filterBrand" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
           <option value="">Все марки</option>
-          <option value="ВВГнг-LS">ВВГнг-LS</option>
-          <option value="ПВС">ПВС</option>
-          <option value="СИП">СИП</option>
-          <option value="КГ">КГ</option>
+          <option value="ВВГнг-LS">ВВГнг-LS (кабель)</option>
+          <option value="ПВС">ПВС (кабель)</option>
+          <option value="СИП">СИП (кабель)</option>
+          <option value="КГ">КГ (кабель)</option>
+          <option value="LED">LED (лампы)</option>
         </select>
       </div>
       <div class="mb-5">
-        <label class="block text-sm font-semibold mb-2">Количество жил</label>
+        <label class="block text-sm font-semibold mb-2">Количество жил (для кабеля)</label>
         <select id="filterCores" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
           <option value="">Все</option>
+          <option value="0">0 (для ламп)</option>
           <option value="2">2 жилы</option>
           <option value="3">3 жилы</option>
           <option value="4">4 жилы</option>
@@ -186,11 +199,12 @@ app.get("*", (req, res) => {
         </select>
       </div>
       <div class="mb-5">
-        <label class="block text-sm font-semibold mb-2">Материал</label>
+        <label class="block text-sm font-semibold mb-2">Материал / Корпус</label>
         <select id="filterMaterial" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
           <option value="">Все</option>
           <option value="Медь">Медь</option>
           <option value="Алюминий">Алюминий</option>
+          <option value="Пластик">Пластик (лампы)</option>
         </select>
       </div>
     </aside>
@@ -228,13 +242,13 @@ app.get("*", (req, res) => {
   <!-- Модальное окно Связь с оператором -->
   <div id="contactModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md border border-[#E5E7EB] shadow-xl relative text-center">
-      <button onclick="toggleContactModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+ <button onclick="toggleContactModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
       <div class="w-12 h-12 bg-[#D97706]/10 text-[#D97706] rounded-full flex items-center justify-center mx-auto mb-3 text-2xl font-bold">📞</div>
       <h3 class="text-xl font-bold mb-2">Связаться с оператором</h3>
       <p class="text-sm text-gray-500 mb-6">Выберите удобный номер для звонка или консультации:</p>
       <div class="space-y-3">
         <a href="tel:+992303838383" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 303838383</a>
- <a href="tel:+992918667474" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 918667474</a>
+        <a href="tel:+992918667474" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 918667474</a>
       </div>
     </div>
   </div>
@@ -258,20 +272,21 @@ app.get("*", (req, res) => {
         <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4 mb-8 bg-[#F9F6F0] p-4 rounded-xl">
           <input type="hidden" id="pId">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" id="pTitle" placeholder="Название кабеля" required class="p-2 border rounded-lg bg-white">
-            <input type="text" id="pBrand" placeholder="Марка" required class="p-2 border rounded-lg bg-white">
-            <input type="number" id="pCores" placeholder="Кол-во жил" required class="p-2 border rounded-lg bg-white">
-            <input type="text" id="pSection" placeholder="Сечение (напр. 2.5)" required class="p-2 border rounded-lg bg-white">
+            <input type="text" id="pTitle" placeholder="Название (напр. Лампа LED)" required class="p-2 border rounded-lg bg-white">
+            <input type="text" id="pBrand" placeholder="Марка (напр. LED / ВВГнг)" required class="p-2 border rounded-lg bg-white">
+            <input type="number" id="pCores" placeholder="Кол-во жил (0 для лампы)" required class="p-2 border rounded-lg bg-white">
+            <input type="text" id="pSection" placeholder="Сечение или Цоколь (напр. E27 / 2.5)" required class="p-2 border rounded-lg bg-white">
             <select id="pMaterial" class="p-2 border rounded-lg bg-white">
               <option value="Медь">Медь</option>
               <option value="Алюминий">Алюминий</option>
+              <option value="Пластик">Пластик</option>
             </select>
             <div class="flex gap-2">
               <input type="number" step="0.01" id="pPrice" placeholder="Цена" required class="w-full p-2 border rounded-lg bg-white">
-              <input type="text" id="pUnit" value="сом/м" required class="w-24 p-2 border rounded-lg bg-white">
+              <input type="text" id="pUnit" value="сом/м" required class="w-28 p-2 border rounded-lg bg-white" placeholder="сом/м или сом/шт">
             </div>
           </div>
-          <textarea id="pDesc" placeholder="Описание и назначение" class="w-full p-2 border rounded-lg bg-white"></textarea>
+          <textarea id="pDesc" placeholder="Описание и характеристики" class="w-full p-2 border rounded-lg bg-white"></textarea>
           <div>
             <label class="block text-xs text-gray-500 mb-1">Фотография товара</label>
             <input type="file" id="pImage" accept="image/*" class="w-full text-sm">
@@ -286,7 +301,8 @@ app.get("*", (req, res) => {
 
   <script>
     let isAdmin = false;
-    let cart = JSON.parse(localStorage.getItem('kabel_cart')) || [];
+    let cart = JSON.parse(localStorage.
+ getItem('kabel_cart')) || [];
     let allProducts = [];
 
     updateCartBadge();
@@ -315,7 +331,8 @@ app.get("*", (req, res) => {
     function toggleProductModal() {
       document.getElementById('productModal').classList.toggle('hidden');
     }
- async function loadProducts() {
+
+    async function loadProducts() {
       const search = document.getElementById("searchInput").value;
       const brand = document.getElementById("filterBrand").value;
       const cores = document.getElementById("filterCores").value;
@@ -326,11 +343,11 @@ app.get("*", (req, res) => {
       document.getElementById("productsGrid").innerHTML = allProducts.map(p => \`
         <div class="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
           <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails(\${p.id})">
-            <img src="\${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Кабель'">
+            <img src="\${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           </div>
           <div class="p-5 flex-1 flex flex-col justify-between">
             <div>
-              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • Жилы: \${p.cores}</span>
+              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand}</span>
               <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails(\${p.id})">\${p.title}</h3>
               <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description || ''}</p>
             </div>
@@ -353,9 +370,9 @@ app.get("*", (req, res) => {
       
       document.getElementById('modalProductContent').innerHTML = \`
         <div class="space-y-4">
-          <img src="\${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Кабель'">
+          <img src="\${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand} • Жилы: \${p.cores} • Сечение: \${p.section}</span>
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand} • Характеристика/Цоколь: \${p.section}</span>
             <h2 class="text-2xl font-bold text-[#1A1A1A] mt-1">\${p.title}</h2>
           </div>
           <div class="bg-[#F9F6F0] p-4 rounded-xl">
@@ -367,7 +384,8 @@ app.get("*", (req, res) => {
               <span class="text-3xl font-black text-[#1A1A1A]">\${p.price}</span>
               <span class="text-sm text-gray-500"> \${p.unit}</span>
             </div>
-            <button onclick="addToCart(\${p.id}); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
+            <button onclick="addToCart(\${p.
+ id}); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
           </div>
         </div>
       \`;
@@ -397,7 +415,8 @@ app.get("*", (req, res) => {
       saveCart();
       renderCart();
     }
- function saveCart() {
+
+    function saveCart() {
       localStorage.setItem('kabel_cart', JSON.stringify(cart));
       updateCartBadge();
     }
@@ -477,7 +496,8 @@ app.get("*", (req, res) => {
       await fetch("/api/logout", { method: "POST" });
       isAdmin = false;
       document.getElementById("loginSection").classList.remove("hidden");
-      document.getElementById("adminControlSection").classList.add("hidden");
+      document.getElementById("adminControlSection").classList.
+ add("hidden");
     }
 
     async function saveProduct(e) {
@@ -497,7 +517,7 @@ app.get("*", (req, res) => {
     function editProduct(p) {
       document.getElementById("pId").value = p.id;
       document.getElementById("pTitle").value = p.title;
- document.getElementById("pBrand").value = p.brand;
+      document.getElementById("pBrand").value = p.brand;
       document.getElementById("pCores").value = p.cores;
       document.getElementById("pSection").value = p.section;
       document.getElementById("pMaterial").value = p.material;
