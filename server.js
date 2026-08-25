@@ -58,7 +58,7 @@ app.get("/api/products", (req, res) => {
   let { products } = getData();
   if (search) {
     const q = search.toLowerCase();
-    products = products.filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+    products = products.filter(p => p.title.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q)));
   }
   if (brand) products = products.filter(p => p.brand === brand);
   if (cores) products = products.filter(p => String(p.cores) === String(cores));
@@ -80,21 +80,22 @@ app.post("/api/logout", (req, res) => {
 });
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
   const data = getData();
-  const { id, title, brand, cores, section, material, price, unit, description } = req.body;
+  const { id, title, brand, cores, section, material, price, unit, desc, description } = req.body;
+  const finalDescription = description  desc  "";
   let imageUrl = req.file ? "/uploads/" + req.file.filename : null;
   if (id) {
     const idx = data.products.findIndex(p => p.id == id);
     if (idx !== -1) {
       data.products[idx] = {
         ...data.products[idx],
-        title, brand, cores: Number(cores), section, material, price: Number(price), unit, description,
+        title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
         image: imageUrl || data.products[idx].image
       };
     }
   } else {
     data.products.push({
       id: Date.now(),
-      title, brand, cores: Number(cores), section, material, price: Number(price), unit, description,
+      title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
       image: imageUrl || "https://via.placeholder.com/300x200?text=Нет+Фото"
     });
   }
@@ -111,9 +112,9 @@ app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+ <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Каталог Кабельной Продукции</title>
+  <title>КабельМаркет</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-[#FDFBF7] text-[#2D3748] font-sans antialiased min-h-screen">
@@ -126,8 +127,8 @@ app.get("*", (req, res) => {
           <div class="w-5 h-0.5 bg-[#2D3748]"></div>
         </button>
         <div class="flex items-center space-x-2 cursor-pointer" onclick="resetFilters()">
-          <div class="w-9 h-9 bg-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-xl">Э</div>
-          <span class="text-xl font-bold tracking-tight text-[#1A1A1A]">ЭлектроКабель</span>
+          <img src="/uploads/logo.jpg" class="w-10 h-10 rounded-xl object-cover border border-[#D97706]" onerror="this.src='https://via.placeholder.com/40?text=KM'">
+          <span class="text-xl font-bold tracking-tight text-[#1A1A1A]">КабельМаркет</span>
         </div>
       </div>
       <div class="flex-1 max-w-xl">
@@ -166,9 +167,9 @@ app.get("*", (req, res) => {
       </div>
       <div class="mb-5">
         <label class="block text-sm font-semibold mb-2">Марка</label>
-        <select id="filterBrand" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
+ <select id="filterBrand" onchange="loadProducts()" class="w-full p-2 bg-[#F9F6F0] border border-[#E5E7EB] rounded-lg text-sm">
           <option value="">Все марки</option>
- <option value="ВВГнг-LS">ВВГнг-LS</option>
+          <option value="ВВГнг-LS">ВВГнг-LS</option>
           <option value="ПВС">ПВС</option>
           <option value="СИП">СИП</option>
           <option value="КГ">КГ</option>
@@ -233,13 +234,13 @@ app.get("*", (req, res) => {
       <p class="text-sm text-gray-500 mb-6">Выберите удобный номер для звонка или консультации:</p>
       <div class="space-y-3">
         <a href="tel:+992303838383" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 303838383</a>
-        <a href="tel:+992918667474" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 918667474</a>
+ <a href="tel:+992918667474" class="block w-full py-3 bg-[#F9F6F0] border border-[#E5E7EB] rounded-xl font-bold text-lg text-[#1A1A1A] hover:bg-gray-100 transition">+992 918667474</a>
       </div>
     </div>
   </div>
 
   <!-- Модальное окно Админ-панели -->
- <div id="adminModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div id="adminModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-2xl border border-[#E5E7EB] shadow-xl max-h-[90vh] overflow-y-auto">
       <div id="loginSection">
         <h2 class="text-xl font-bold mb-4">Вход в Админ-панель</h2>
@@ -314,13 +315,11 @@ app.get("*", (req, res) => {
     function toggleProductModal() {
       document.getElementById('productModal').classList.toggle('hidden');
     }
-
-    async function loadProducts() {
+ async function loadProducts() {
       const search = document.getElementById("searchInput").value;
       const brand = document.getElementById("filterBrand").value;
       const cores = document.getElementById("filterCores").value;
-      const material = document.
- getElementById("filterMaterial").value;
+      const material = document.getElementById("filterMaterial").value;
       const res = await fetch("/api/products?" + new URLSearchParams({ search, brand, cores, material }));
       allProducts = await res.json();
       
@@ -333,7 +332,7 @@ app.get("*", (req, res) => {
             <div>
               <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • Жилы: \${p.cores}</span>
               <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails(\${p.id})">\${p.title}</h3>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description}</p>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description || ''}</p>
             </div>
             <div class="mt-4 flex items-baseline justify-between pt-3 border-t">
               <div>
@@ -398,16 +397,14 @@ app.get("*", (req, res) => {
       saveCart();
       renderCart();
     }
-
-    function saveCart() {
+ function saveCart() {
       localStorage.setItem('kabel_cart', JSON.stringify(cart));
       updateCartBadge();
     }
 
     function updateCartBadge() {
       const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-      document.getElementById('cartBadge').
- innerText = totalCount;
+      document.getElementById('cartBadge').innerText = totalCount;
     }
 
     function renderCart() {
@@ -493,20 +490,20 @@ app.get("*", (req, res) => {
         document.getElementById("productForm").reset();
         document.getElementById("pId").value = "";
         loadProducts();
+        alert("Товар успешно сохранен!");
       }
     }
 
     function editProduct(p) {
       document.getElementById("pId").value = p.id;
       document.getElementById("pTitle").value = p.title;
-      document.getElementById("pBrand").value = p.brand;
+ document.getElementById("pBrand").value = p.brand;
       document.getElementById("pCores").value = p.cores;
       document.getElementById("pSection").value = p.section;
       document.getElementById("pMaterial").value = p.material;
       document.getElementById("pPrice").value = p.price;
-      document.
- getElementById("pUnit").value = p.unit;
-      document.getElementById("pDesc").value = p.description;
+      document.getElementById("pUnit").value = p.unit;
+      document.getElementById("pDesc").value = p.description || "";
     }
 
     async function deleteProduct(id) {
