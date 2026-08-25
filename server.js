@@ -93,7 +93,7 @@ app.post("/api/logout", (req, res) => {
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
   const data = getData();
   const { id, title, brand, cores, section, material, price, unit, desc, description } = req.body;
-  const finalDescription = description  desc  "";
+  const finalDescription = || description || desc  "";
   let imageUrl = req.file ? "/uploads/" + req.file.filename : null;
   if (id) {
     const idx = data.products.findIndex(p => p.id == id);
