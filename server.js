@@ -129,7 +129,7 @@ app.post("/api/orders", (req, res) => {
     address: address || "Не указан",
     items,
     totalPrice,
-    status: "Новый" // Статус заказа по умолчанию
+    status: "Новый"
   };
 
   data.orders.unshift(newOrder);
@@ -137,7 +137,6 @@ app.post("/api/orders", (req, res) => {
   res.json({ success: true, orderId: newOrder.id });
 });
 
-// Эндпоинт для обновления статуса заказа из админки
 app.post("/api/orders/:id/status", checkAuth, (req, res) => {
   const { status } = req.body;
   const data = getData();
@@ -298,9 +297,9 @@ app.get("*", (req, res) => {
     </div>
   </div>
 
-  <!-- Модальное окно подробного просмотра конкретного заказа -->
-  <div id="orderDetailsModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-lg border border-[#E5E7EB] shadow-xl relative max-h-[90vh] overflow-y-auto">
+  <!-- Модальное окно деталей заказа (теперь гарантированно поверх страницы со слоем z-[9999]) -->
+  <div id="orderDetailsModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg border border-[#E5E7EB] shadow-2xl relative max-h-[90vh] overflow-y-auto">
       <button onclick="toggleOrderDetailsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
       <div id="orderDetailsContent"></div>
     </div>
@@ -527,7 +526,6 @@ app.get("*", (req, res) => {
       toggleProductModal();
     }
 
-    // Открытие детальной информации о заказе по клику
     function openOrderDetails(orderId) {
       const o = allOrders.find(item => String(item.id) === String(orderId));
       if (!o) return;
@@ -559,7 +557,7 @@ app.get("*", (req, res) => {
             </div>
           </div>
           <div class="flex gap-3 pt-2">
-            <button onclick="updateOrderStatus('\${o.id}', 'Принят')" class="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Принять</button>
+            <button onclick="updateOrderStatus('\${o.id}', 'Принять')" class="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Принять</button>
             <button onclick="updateOrderStatus('\${o.id}', 'Отклонен')" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition">Отклонить</button>
           </div>
         </div>
@@ -752,7 +750,7 @@ app.get("*", (req, res) => {
                   <p class="text-xs text-gray-500">Товаров: \${o.items.length} шт. | Сумма: <b class="text-[#1A1A1A]">\${o.totalPrice}</b></p>
                 </div>
                 <div class="flex gap-2" onclick="event.stopPropagation()">
-                  <button onclick="updateOrderStatus('\${o.id}', 'Принят')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition">Принять</button>
+                  <button onclick="updateOrderStatus('\${o.id}', 'Принять')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition">Принять</button>
                   <button onclick="updateOrderStatus('\${o.id}', 'Отклонен')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition">Отклонить</button>
                 </div>
               </div>
