@@ -39,7 +39,8 @@ if (!fs.existsSync(dataFile)) {
         description: "Энергосберегающая светодиодная лампа, цоколь E27, теплый свет. Отлично подходит для бытового освещения.",
         image: "https://via.placeholder.com/300x200?text=Лампа+LED"
       }
-    ]
+    ],
+    orders: []
   };
   fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
 }
@@ -47,9 +48,11 @@ if (!fs.existsSync(dataFile)) {
 function getData() {
   try {
     const data = fs.readFileSync(dataFile, "utf8");
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    if (!parsed.orders) parsed.orders = [];
+    return parsed;
   } catch (e) {
-    return { products: [] };
+    return { products: [], orders: [] };
   }
 }
 
@@ -104,6 +107,35 @@ app.post("/api/login", (req, res) => {
 app.post("/api/logout", (req, res) => {
   req.session.destroy();
   res.json({ success: true });
+});
+
+// Получение списка заказов (только для админа)
+app.get("/api/orders", checkAuth, (req, res) => {
+  const data = getData();
+  res.json(data.orders);
+});
+
+// Создание заказа
+app.post("/api/orders", (req, res) => {
+  const { name, phone, address, items, totalPrice } = req.body;
+  if (!name || !phone || !items || items.length === 0) {
+    return res.status(400).json({ error: "Заполните имя и телефон, а также добавьте товары" });
+  }
+
+  const data = getData();
+  const newOrder = {
+    id: Date.now(),
+    date: new Date().toLocaleString(),
+    name,
+    phone,
+    address: address || "Не указан",
+    items,
+    totalPrice
+  };
+
+  data.orders.unshift(newOrder); // Добавляем новый заказ в начало списка
+  saveData(data);
+  res.json({ success: true, orderId: newOrder.id });
 });
 
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
@@ -266,8 +298,32 @@ app.get("*", (req, res) => {
           <span>Итого:</span>
           <span id="cartTotalPrice">0 сом</span>
         </div>
-        <button onclick="checkoutCart()" class="w-full py-3 bg-[#D97706] text-white rounded-xl font-bold hover:bg-[#B45309] transition">Оформить заказ</button>
+        <button onclick="openCheckoutModal()" class="w-full py-3 bg-[#D97706] text-white rounded-xl font-bold hover:bg-[#B45309] transition">Оформить заказ</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно оформления заказа с заполнением данных -->
+  <div id="checkoutModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md border border-[#E5E7EB] shadow-xl relative">
+      <button onclick="toggleCheckoutModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+      <h3 class="text-xl font-bold mb-2">Оформление заказа</h3>
+      <p class="text-sm text-gray-500 mb-4">Заполните данные, чтобы администрация могла с вами связаться:</p>
+      <form id="checkoutForm" onsubmit="submitOrder(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Ваше имя *</label>
+          <input type="text" id="orderName" required placeholder="Иван" class="w-full p-2.5 border rounded-lg bg-[#F9F6F0]">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Номер телефона *</label>
+          <input type="tel" id="orderPhone" required placeholder="+992 XXX XX XX XX" class="w-full p-2.5 border rounded-lg bg-[#F9F6F0]">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Адрес доставки</label>
+          <input type="text" id="orderAddress" placeholder="Город, улица, дом" class="w-full p-2.5 border rounded-lg bg-[#F9F6F0]">
+        </div>
+        <button type="submit" class="w-full py-3 bg-[#D97706] text-white rounded-xl font-bold hover:bg-[#B45309] transition">Подтвердить заказ</button>
+      </form>
     </div>
   </div>
 
@@ -285,7 +341,7 @@ app.get("*", (req, res) => {
   </div>
 
   <div id="adminModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-2xl border border-[#E5E7EB] shadow-xl max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-3xl border border-[#E5E7EB] shadow-xl max-h-[90vh] overflow-y-auto">
       <div id="loginSection">
         <h2 class="text-xl font-bold mb-4">Вход в Админ-панель</h2>
         <input type="password" id="adminPass" placeholder="Пароль (по умолч: admin123)" class="w-full p-3 border rounded-lg mb-4 bg-[#F9F6F0]">
@@ -296,35 +352,51 @@ app.get("*", (req, res) => {
       </div>
       <div id="adminControlSection" class="hidden">
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-bold">Управление товарами</h2>
+          <h2 class="text-xl font-bold">Админ-панель</h2>
           <button onclick="logout()" class="text-sm text-red-500 hover:underline">Выйти</button>
         </div>
-        <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4 mb-8 bg-[#F9F6F0] p-4 rounded-xl">
-          <input type="hidden" id="pId">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" id="pTitle" placeholder="Название (напр. Лампа LED)" required class="p-2 border rounded-lg bg-white">
-            <input type="text" id="pBrand" placeholder="Марка (напр. LED / ВВГнг)" required class="p-2 border rounded-lg bg-white">
-            <input type="number" id="pCores" placeholder="Кол-во жил (0 для лампы)" required class="p-2 border rounded-lg bg-white">
-            <input type="text" id="pSection" placeholder="Сечение или Цоколь (напр. E27 / 2.5)" required class="p-2 border rounded-lg bg-white">
-            <select id="pMaterial" class="p-2 border rounded-lg bg-white">
-              <option value="Медь">Медь</option>
-              <option value="Алюминий">Алюминий</option>
-              <option value="Пластик">Пластик</option>
-            </select>
-            <div class="flex gap-2">
-              <input type="number" step="0.01" id="pPrice" placeholder="Цена" required class="w-full p-2 border rounded-lg bg-white">
-              <input type="text" id="pUnit" value="сом/м" required class="w-28 p-2 border rounded-lg bg-white" placeholder="сом/м или сом/шт">
+        
+        <!-- Вкладки админки -->
+        <div class="flex gap-2 border-b mb-6 pb-2">
+          <button onclick="switchAdminTab('products')" id="tabProductsBtn" class="px-4 py-2 font-bold text-sm bg-[#D97706] text-white rounded-lg transition">Товары</button>
+          <button onclick="switchAdminTab('orders')" id="tabOrdersBtn" class="px-4 py-2 font-bold text-sm bg-gray-100 text-gray-700 rounded-lg transition">📦 Заказы</button>
+        </div>
+
+        <!-- Секция товаров -->
+        <div id="adminProductsTab">
+          <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4 mb-8 bg-[#F9F6F0] p-4 rounded-xl">
+            <input type="hidden" id="pId">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input type="text" id="pTitle" placeholder="Название (напр. Лампа LED)" required class="p-2 border rounded-lg bg-white">
+              <input type="text" id="pBrand" placeholder="Марка (напр. LED / ВВГнг)" required class="p-2 border rounded-lg bg-white">
+              <input type="number" id="pCores" placeholder="Кол-во жил (0 для лампы)" required class="p-2 border rounded-lg bg-white">
+              <input type="text" id="pSection" placeholder="Сечение или Цоколь (напр. E27 / 2.5)" required class="p-2 border rounded-lg bg-white">
+              <select id="pMaterial" class="p-2 border rounded-lg bg-white">
+                <option value="Медь">Медь</option>
+                <option value="Алюминий">Алюминий</option>
+                <option value="Пластик">Пластик</option>
+              </select>
+              <div class="flex gap-2">
+                <input type="number" step="0.01" id="pPrice" placeholder="Цена" required class="w-full p-2 border rounded-lg bg-white">
+                <input type="text" id="pUnit" value="сом/м" required class="w-28 p-2 border rounded-lg bg-white" placeholder="сом/м или сом/шт">
+              </div>
             </div>
-          </div>
-          <textarea id="pDesc" placeholder="Описание и характеристики" class="w-full p-2 border rounded-lg bg-white"></textarea>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1">Фотография товара</label>
-            <input type="file" id="pImage" accept="image/*" class="w-full text-sm">
-          </div>
-          <button type="submit" class="w-full py-2 bg-[#D97706] text-white rounded-lg font-medium hover:bg-[#B45309]">Сохранить товар</button>
-        </form>
-        <h3 class="font-bold mb-2">Список товаров</h3>
-        <div id="adminProductList" class="space-y-2"></div>
+            <textarea id="pDesc" placeholder="Описание и характеристики" class="w-full p-2 border rounded-lg bg-white"></textarea>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Фотография товара</label>
+              <input type="file" id="pImage" accept="image/*" class="w-full text-sm">
+            </div>
+            <button type="submit" class="w-full py-2 bg-[#D97706] text-white rounded-lg font-medium hover:bg-[#B45309]">Сохранить товар</button>
+          </form>
+          <h3 class="font-bold mb-2">Список товаров</h3>
+          <div id="adminProductList" class="space-y-2"></div>
+        </div>
+
+        <!-- Секция заказов -->
+        <div id="adminOrdersTab" class="hidden">
+          <h3 class="font-bold mb-4">Список поступивших заказов</h3>
+          <div id="adminOrdersList" class="space-y-4"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -353,6 +425,19 @@ app.get("*", (req, res) => {
       document.getElementById('cartModal').classList.toggle('hidden');
     }
 
+    function toggleCheckoutModal() {
+      document.getElementById('checkoutModal').classList.toggle('hidden');
+    }
+
+    function openCheckoutModal() {
+      if (cart.length === 0) {
+        alert('Корзина пуста!');
+        return;
+      }
+      toggleCartModal();
+      toggleCheckoutModal();
+    }
+
     function toggleContactModal() {
       document.getElementById('contactModal').classList.toggle('hidden');
     }
@@ -369,27 +454,27 @@ app.get("*", (req, res) => {
       const res = await fetch("/api/products?" + new URLSearchParams({ search, brand, cores, material }));
       allProducts = await res.json();
       
-      document.getElementById("productsGrid").innerHTML = allProducts.map(p => \`
+      document.getElementById("productsGrid").innerHTML = allProducts.map(p => `
         <div class="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
-          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails('\${p.id}')">
-            <img src="\${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
+          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails('${p.id}')">
+            <img src="${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           </div>
           <div class="p-5 flex-1 flex flex-col justify-between">
             <div>
-              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand}</span>
-              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails('\${p.id}')">\${p.title}</h3>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description || ''}</p>
+              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">${p.material} • ${p.brand}</span>
+              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails('${p.id}')">${p.title}</h3>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">${p.description || ''}</p>
             </div>
             <div class="mt-4 flex items-baseline justify-between pt-3 border-t">
               <div>
-                <span class="text-2xl font-black text-[#1A1A1A]">\${p.price}</span>
-                <span class="text-sm text-gray-500"> \${p.unit}</span>
+                <span class="text-2xl font-black text-[#1A1A1A]">${p.price}</span>
+                <span class="text-sm text-gray-500"> ${p.unit}</span>
               </div>
-              <button onclick="addToCart('\${p.id}')" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
+              <button onclick="addToCart('${p.id}')" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
             </div>
           </div>
         </div>
-      \`).join("");
+      `).join("");
       if (isAdmin) renderAdminList(allProducts);
     }
 
@@ -397,26 +482,26 @@ app.get("*", (req, res) => {
       const p = allProducts.find(item => String(item.id) === String(id));
       if (!p) return;
       
-      document.getElementById('modalProductContent').innerHTML = \`
+      document.getElementById('modalProductContent').innerHTML = `
         <div class="space-y-4">
-          <img src="\${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
+          <img src="${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand} • Характеристика/Цоколь: \${p.section}</span>
-            <h2 class="text-2xl font-bold text-[#1A1A1A] mt-1">\${p.title}</h2>
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">${p.material} • ${p.brand} • Характеристика/Цоколь: ${p.section}</span>
+            <h2 class="text-2xl font-bold text-[#1A1A1A] mt-1">${p.title}</h2>
           </div>
           <div class="bg-[#F9F6F0] p-4 rounded-xl">
             <h4 class="font-bold text-sm mb-1">Описание и назначение:</h4>
-            <p class="text-sm text-gray-600">\${p.description || 'Описание отсутствует'}</p>
+            <p class="text-sm text-gray-600">${p.description || 'Описание отсутствует'}</p>
           </div>
           <div class="flex items-center justify-between pt-2">
             <div>
-              <span class="text-3xl font-black text-[#1A1A1A]">\${p.price}</span>
-              <span class="text-sm text-gray-500"> \${p.unit}</span>
+              <span class="text-3xl font-black text-[#1A1A1A]">${p.price}</span>
+              <span class="text-sm text-gray-500"> ${p.unit}</span>
             </div>
-            <button onclick="addToCart('\${p.id}'); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
+            <button onclick="addToCart('${p.id}'); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
           </div>
         </div>
-      \`;
+      `;
       toggleProductModal();
     }
 
@@ -465,35 +550,49 @@ app.get("*", (req, res) => {
       list.innerHTML = cart.map(item => {
         let itemSum = item.price * item.quantity;
         total += itemSum;
-        return \`
+        return `
           <div class="flex items-center justify-between py-3">
             <div>
-              <h4 class="font-bold text-sm">\${item.title}</h4>
-              <p class="text-xs text-gray-500">\${item.price} \${item.unit} за ед.</p>
+              <h4 class="font-bold text-sm">${item.title}</h4>
+              <p class="text-xs text-gray-500">${item.price} ${item.unit} за ед.</p>
             </div>
             <div class="flex items-center gap-3">
               <div class="flex items-center border rounded-lg overflow-hidden bg-[#F9F6F0]">
-                <button onclick="changeQuantity('\${item.id}', -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
-                <span class="px-3 text-sm font-semibold">\${item.quantity}</span>
-                <button onclick="changeQuantity('\${item.id}', 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
+                <button onclick="changeQuantity('${item.id}', -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
+                <span class="px-3 text-sm font-semibold">${item.quantity}</span>
+                <button onclick="changeQuantity('${item.id}', 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
               </div>
-              <span class="font-bold text-sm min-w-[70px] text-right">\${itemSum.toFixed(2)} сом</span>
+              <span class="font-bold text-sm min-w-[70px] text-right">${itemSum.toFixed(2)} сом</span>
             </div>
           </div>
-        \`;
+        `;
       }).join('');
       document.getElementById('cartTotalPrice').innerText = total.toFixed(2) + ' сом';
     }
 
-    function checkoutCart() {
-      if (cart.length === 0) {
-        alert('Корзина пуста!');
-        return;
+    async function submitOrder(e) {
+      e.preventDefault();
+      const name = document.getElementById('orderName').value;
+      const phone = document.getElementById('orderPhone').value;
+      const address = document.getElementById('orderAddress').value;
+
+      let totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone, address, items: cart, totalPrice: totalPrice.toFixed(2) + ' сом' })
+      });
+
+      if (res.ok) {
+        alert('Спасибо за заказ! Администрация получила ваши данные и скоро с вами свяжется.');
+        cart = [];
+        saveCart();
+        toggleCheckoutModal();
+        document.getElementById('checkoutForm').reset();
+      } else {
+        alert('Ошибка при оформлении заказа. Пожалуйста, заполните обязательные поля.');
       }
-      alert('Спасибо за заказ! Оператор свяжется с вами в ближайшее время для подтверждения.');
-      cart = [];
-      saveCart();
-      toggleCartModal();
     }
 
     function resetFilters() {
@@ -517,6 +616,7 @@ app.get("*", (req, res) => {
         document.getElementById("loginSection").classList.add("hidden");
         document.getElementById("adminControlSection").classList.remove("hidden");
         loadProducts();
+        loadOrders();
       } else alert("Неверный пароль");
     }
 
@@ -525,6 +625,61 @@ app.get("*", (req, res) => {
       isAdmin = false;
       document.getElementById("loginSection").classList.remove("hidden");
       document.getElementById("adminControlSection").classList.add("hidden");
+    }
+
+    function switchAdminTab(tab) {
+      const productsTab = document.getElementById("adminProductsTab");
+      const ordersTab = document.getElementById("adminOrdersTab");
+      const pBtn = document.getElementById("tabProductsBtn");
+      const oBtn = document.getElementById("tabOrdersBtn");
+
+      if (tab === 'products') {
+        productsTab.classList.remove("hidden");
+        ordersTab.classList.add("hidden");
+        pBtn.className = "px-4 py-2 font-bold text-sm bg-[#D97706] text-white rounded-lg transition";
+        oBtn.className = "px-4 py-2 font-bold text-sm bg-gray-100 text-gray-700 rounded-lg transition";
+      } else {
+        productsTab.classList.add("hidden");
+        ordersTab.classList.remove("hidden");
+        oBtn.className = "px-4 py-2 font-bold text-sm bg-[#D97706] text-white rounded-lg transition";
+        pBtn.className = "px-4 py-2 font-bold text-sm bg-gray-100 text-gray-700 rounded-lg transition";
+        loadOrders();
+      }
+    }
+
+    async function loadOrders() {
+      const res = await fetch("/api/orders");
+      if (res.ok) {
+        const orders = await res.json();
+        const container = document.getElementById("adminOrdersList");
+        if (orders.length === 0) {
+          container.innerHTML = '<p class="text-gray-500 text-sm">Пока нет ни одного заказа.</p>';
+          return;
+        }
+        container.innerHTML = orders.map(o => `
+          <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-2">
+            <div class="flex justify-between items-center border-b pb-2">
+              <span class="font-bold text-[#D97706]">Заказ #${o.id}</span>
+              <span class="text-xs text-gray-500">${o.date}</span>
+            </div>
+            <div>
+              <p><b>Имя:</b> ${o.name}</p>
+              <p><b>Телефон:</b> <a href="tel:${o.phone}" class="text-blue-600 underline">${o.phone}</a></p>
+              <p><b>Адрес:</b> ${o.address}</p>
+            </div>
+            <div class="bg-white p-3 rounded-lg border">
+              <p class="font-semibold mb-1 text-xs text-gray-500 uppercase">Товары в заказе:</p>
+              <ul class="space-y-1">
+                ${o.items.map(i => `<li>• ${i.title} — ${i.quantity} шт. (${i.price * i.quantity} сом)</li>`).join('')}
+              </ul>
+              <div class="mt-2 pt-2 border-t font-bold flex justify-between">
+                <span>Итого к оплате:</span>
+                <span class="text-[#D97706]">${o.totalPrice}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
     }
 
     async function saveProduct(e) {
@@ -561,15 +716,15 @@ app.get("*", (req, res) => {
     }
 
     function renderAdminList(products) {
-      document.getElementById("adminProductList").innerHTML = products.map(p => \`
+      document.getElementById("adminProductList").innerHTML = products.map(p => `
         <div class="flex items-center justify-between p-2 bg-gray-50 rounded border text-sm">
-          <span>\${p.title} - <b>\${p.price} \${p.unit}</b></span>
+          <span>${p.title} - <b>${p.price} ${p.unit}</b></span>
           <div class="flex gap-2">
-            <button onclick='editProduct(\${JSON.stringify(p)})' class="text-blue-600 hover:underline">Изм.</button>
-            <button onclick="deleteProduct('\${p.id}')" class="text-red-600 hover:underline">Уд.</button>
+            <button onclick='editProduct(${JSON.stringify(p)})' class="text-blue-600 hover:underline">Изм.</button>
+            <button onclick="deleteProduct('${p.id}')" class="text-red-600 hover:underline">Уд.</button>
           </div>
         </div>
-      \`).join("");
+      `).join("");
     }
 
     loadProducts();
