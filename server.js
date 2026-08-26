@@ -1,4 +1,4 @@
-﻿ const express = require("express");
+﻿const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
 const bcrypt = require("bcryptjs");
@@ -6,8 +6,10 @@ const path = require("path");
 const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
 const dataFile = path.join(__dirname, "data.json");
 if (!fs.existsSync(dataFile)) {
   const initialData = {
@@ -41,17 +43,26 @@ if (!fs.existsSync(dataFile)) {
   };
   fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
 }
+
 function getData() {
-  return JSON.parse(fs.readFileSync(dataFile));
+  try {
+    const data = fs.readFileSync(dataFile, "utf8");
+    return JSON.parse(data);
+  } catch (e) {
+    return { products: [] };
+  }
 }
+
 function saveData(data) {
-  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
+  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2), "utf8");
 }
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(uploadDir));
@@ -61,10 +72,12 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 3600000 * 24 }
 }));
+
 function checkAuth(req, res, next) {
   if (req.session.isAdmin) next();
   else res.status(401).json({ error: "Auth error" });
 }
+
 app.get("/api/products", (req, res) => {
   const { search, brand, cores, material } = req.query;
   let { products } = getData();
@@ -77,6 +90,7 @@ app.get("/api/products", (req, res) => {
   if (material) products = products.filter(p => p.material === material);
   res.json(products);
 });
+
 app.post("/api/login", (req, res) => {
   const { password } = req.body;
   if (bcrypt.compareSync(password, getData().adminPasswordHash)) {
@@ -86,45 +100,65 @@ app.post("/api/login", (req, res) => {
     res.status(400).json({ error: "Неверный пароль" });
   }
 });
+
 app.post("/api/logout", (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
+
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
   const data = getData();
   const { id, title, brand, cores, section, material, price, unit, desc, description } = req.body;
   const finalDescription = description || desc || "";
   let imageUrl = req.file ? "/uploads/" + req.file.filename : null;
-  if (id) {
-    const idx = data.products.findIndex(p => p.id == id);
+  
+  if (id && id !== "") {
+    const idx = data.products.findIndex(p => String(p.id) === String(id));
     if (idx !== -1) {
       data.products[idx] = {
         ...data.products[idx],
-        title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
+        title, 
+        brand, 
+        cores: Number(cores), 
+        section, 
+        material, 
+        price: Number(price), 
+        unit, 
+        description: finalDescription,
         image: imageUrl || data.products[idx].image
       };
     }
   } else {
     data.products.push({
       id: Date.now(),
- title, brand, cores: Number(cores), section, material, price: Number(price), unit, description: finalDescription,
+      title, 
+      brand, 
+      cores: Number(cores), 
+      section, 
+      material, 
+      price: Number(price), 
+      unit, 
+      description: finalDescription,
       image: imageUrl || "https://via.placeholder.com/300x200?text=Нет+Фото"
     });
   }
   saveData(data);
   res.json({ success: true });
 });
+
 app.delete("/api/products/:id", checkAuth, (req, res) => {
   const data = getData();
-  data.products = data.products.filter(p => p.id != req.params.id);
+  const targetId = String(req.params.id);
+  data.products = data.products.filter(p => String(p.id) !== targetId);
   saveData(data);
   res.json({ success: true });
 });
+
 app.get("*", (req, res) => {
   res.send(`<!DOCTYPE html>
- <html lang="ru">
+<html lang="ru">
 <head>
- <meta charset="UTF-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>КабельМаркет</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -156,7 +190,6 @@ app.get("*", (req, res) => {
     </div>
   </header>
 
-  <!-- Бургер-меню -->
   <div id="menuOverlay" onclick="toggleMenu()" class="fixed inset-0 bg-black/40 z-50 hidden transition-opacity"></div>
   <div id="sideMenu" class="fixed top-0 left-[-300px] w-72 h-full bg-white shadow-2xl z-50 transition-all duration-300 p-6 flex flex-col">
     <div class="flex justify-between items-center mb-6">
@@ -170,7 +203,8 @@ app.get("*", (req, res) => {
       <a href="#" onclick="toggleAdminModal(); toggleMenu();" class="p-3 rounded-xl hover:bg-[#F9F6F0] text-[#D97706] font-medium transition flex items-center gap-3">⚙️ Панель Админа</a>
     </div>
   </div>
- <main class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+
+  <main class="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
     <aside class="w-full md:w-64 bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm h-fit">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-bold text-[#1A1A1A]">Фильтры</h2>
@@ -213,7 +247,6 @@ app.get("*", (req, res) => {
     </section>
   </main>
 
-  <!-- Модальное окно товара (Описание) -->
   <div id="productModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-xl border border-[#E5E7EB] shadow-xl relative">
       <button onclick="toggleProductModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
@@ -221,7 +254,6 @@ app.get("*", (req, res) => {
     </div>
   </div>
 
-  <!-- Модальное окно Корзины -->
   <div id="cartModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-lg border border-[#E5E7EB] shadow-xl relative max-h-[90vh] flex flex-col">
       <div class="flex justify-between items-center mb-4">
@@ -239,10 +271,9 @@ app.get("*", (req, res) => {
     </div>
   </div>
 
-  <!-- Модальное окно Связь с оператором -->
   <div id="contactModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md border border-[#E5E7EB] shadow-xl relative text-center">
- <button onclick="toggleContactModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+      <button onclick="toggleContactModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
       <div class="w-12 h-12 bg-[#D97706]/10 text-[#D97706] rounded-full flex items-center justify-center mx-auto mb-3 text-2xl font-bold">📞</div>
       <h3 class="text-xl font-bold mb-2">Связаться с оператором</h3>
       <p class="text-sm text-gray-500 mb-6">Выберите удобный номер для звонка или консультации:</p>
@@ -253,7 +284,6 @@ app.get("*", (req, res) => {
     </div>
   </div>
 
-  <!-- Модальное окно Админ-панели -->
   <div id="adminModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-2xl border border-[#E5E7EB] shadow-xl max-h-[90vh] overflow-y-auto">
       <div id="loginSection">
@@ -301,8 +331,7 @@ app.get("*", (req, res) => {
 
   <script>
     let isAdmin = false;
-    let cart = JSON.parse(localStorage.
- getItem('kabel_cart')) || [];
+    let cart = JSON.parse(localStorage.getItem('kabel_cart')) || [];
     let allProducts = [];
 
     updateCartBadge();
@@ -342,13 +371,13 @@ app.get("*", (req, res) => {
       
       document.getElementById("productsGrid").innerHTML = allProducts.map(p => \`
         <div class="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
-          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails(\${p.id})">
+          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails('\${p.id}')">
             <img src="\${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           </div>
           <div class="p-5 flex-1 flex flex-col justify-between">
             <div>
               <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand}</span>
-              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails(\${p.id})">\${p.title}</h3>
+              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails('\${p.id}')">\${p.title}</h3>
               <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description || ''}</p>
             </div>
             <div class="mt-4 flex items-baseline justify-between pt-3 border-t">
@@ -356,7 +385,7 @@ app.get("*", (req, res) => {
                 <span class="text-2xl font-black text-[#1A1A1A]">\${p.price}</span>
                 <span class="text-sm text-gray-500"> \${p.unit}</span>
               </div>
-              <button onclick="addToCart(\${p.id})" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
+              <button onclick="addToCart('\${p.id}')" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
             </div>
           </div>
         </div>
@@ -365,7 +394,7 @@ app.get("*", (req, res) => {
     }
 
     function openProductDetails(id) {
-      const p = allProducts.find(item => item.id == id);
+      const p = allProducts.find(item => String(item.id) === String(id));
       if (!p) return;
       
       document.getElementById('modalProductContent').innerHTML = \`
@@ -384,8 +413,7 @@ app.get("*", (req, res) => {
               <span class="text-3xl font-black text-[#1A1A1A]">\${p.price}</span>
               <span class="text-sm text-gray-500"> \${p.unit}</span>
             </div>
-            <button onclick="addToCart(\${p.
- id}); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
+            <button onclick="addToCart('\${p.id}'); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
           </div>
         </div>
       \`;
@@ -393,9 +421,9 @@ app.get("*", (req, res) => {
     }
 
     function addToCart(id) {
-      const p = allProducts.find(item => item.id == id);
+      const p = allProducts.find(item => String(item.id) === String(id));
       if (!p) return;
-      const existing = cart.find(item => item.id == id);
+      const existing = cart.find(item => String(item.id) === String(id));
       if (existing) {
         existing.quantity += 1;
       } else {
@@ -406,11 +434,11 @@ app.get("*", (req, res) => {
     }
 
     function changeQuantity(id, delta) {
-      const item = cart.find(i => i.id == id);
+      const item = cart.find(i => String(i.id) === String(id));
       if (!item) return;
       item.quantity += delta;
       if (item.quantity <= 0) {
-        cart = cart.filter(i => i.id != id);
+        cart = cart.filter(i => String(i.id) !== String(id));
       }
       saveCart();
       renderCart();
@@ -445,9 +473,9 @@ app.get("*", (req, res) => {
             </div>
             <div class="flex items-center gap-3">
               <div class="flex items-center border rounded-lg overflow-hidden bg-[#F9F6F0]">
-                <button onclick="changeQuantity(\${item.id}, -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
+                <button onclick="changeQuantity('\${item.id}', -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
                 <span class="px-3 text-sm font-semibold">\${item.quantity}</span>
-                <button onclick="changeQuantity(\${item.id}, 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
+                <button onclick="changeQuantity('\${item.id}', 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
               </div>
               <span class="font-bold text-sm min-w-[70px] text-right">\${itemSum.toFixed(2)} сом</span>
             </div>
@@ -496,8 +524,7 @@ app.get("*", (req, res) => {
       await fetch("/api/logout", { method: "POST" });
       isAdmin = false;
       document.getElementById("loginSection").classList.remove("hidden");
-      document.getElementById("adminControlSection").classList.
- add("hidden");
+      document.getElementById("adminControlSection").classList.add("hidden");
     }
 
     async function saveProduct(e) {
@@ -539,7 +566,7 @@ app.get("*", (req, res) => {
           <span>\${p.title} - <b>\${p.price} \${p.unit}</b></span>
           <div class="flex gap-2">
             <button onclick='editProduct(\${JSON.stringify(p)})' class="text-blue-600 hover:underline">Изм.</button>
-            <button onclick="deleteProduct(\${p.id})" class="text-red-600 hover:underline">Уд.</button>
+            <button onclick="deleteProduct('\${p.id}')" class="text-red-600 hover:underline">Уд.</button>
           </div>
         </div>
       \`).join("");
