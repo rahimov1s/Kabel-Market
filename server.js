@@ -128,12 +128,27 @@ app.post("/api/orders", (req, res) => {
     phone,
     address: address || "Не указан",
     items,
-    totalPrice
+    totalPrice,
+    status: "Новый" // Статус заказа по умолчанию
   };
 
   data.orders.unshift(newOrder);
   saveData(data);
   res.json({ success: true, orderId: newOrder.id });
+});
+
+// Эндпоинт для обновления статуса заказа из админки
+app.post("/api/orders/:id/status", checkAuth, (req, res) => {
+  const { status } = req.body;
+  const data = getData();
+  const order = data.orders.find(o => String(o.id) === String(req.params.id));
+  if (order) {
+    order.status = status;
+    saveData(data);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: "Заказ не найден" });
+  }
 });
 
 app.post("/api/products/save", checkAuth, upload.single("image"), (req, res) => {
@@ -215,7 +230,6 @@ app.get("*", (req, res) => {
           🛒 Корзина <span id="cartBadge" class="bg-[#D97706] text-white px-2 py-0.5 rounded-full text-xs font-bold">0</span>
         </button>
         <button onclick="toggleContactModal()" class="px-3 py-2 text-sm font-medium text-white bg-[#D97706] rounded-lg hover:bg-[#B45309] transition">Связаться</button>
-        <button onclick="toggleAdminModal()" class="px-3 py-2 text-sm font-medium text-[#D97706] border border-[#D97706] rounded-lg hover:bg-[#D97706] hover:text-white transition">Админ</button>
       </div>
     </div>
   </header>
@@ -281,6 +295,14 @@ app.get("*", (req, res) => {
     <div class="bg-white rounded-2xl p-6 w-full max-w-xl border border-[#E5E7EB] shadow-xl relative">
       <button onclick="toggleProductModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
       <div id="modalProductContent"></div>
+    </div>
+  </div>
+
+  <!-- Модальное окно подробного просмотра конкретного заказа -->
+  <div id="orderDetailsModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg border border-[#E5E7EB] shadow-xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="toggleOrderDetailsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+      <div id="orderDetailsContent"></div>
     </div>
   </div>
 
@@ -399,8 +421,10 @@ app.get("*", (req, res) => {
     let isAdmin = false;
     let cart = JSON.parse(localStorage.getItem('kabel_cart')) || [];
     let allProducts = [];
+    let allOrders = [];
 
     updateCartBadge();
+    loadProducts();
 
     function toggleMenu() {
       const menu = document.getElementById('sideMenu');
@@ -438,6 +462,10 @@ app.get("*", (req, res) => {
 
     function toggleProductModal() {
       document.getElementById('productModal').classList.toggle('hidden');
+    }
+
+    function toggleOrderDetailsModal() {
+      document.getElementById('orderDetailsModal').classList.toggle('hidden');
     }
 
     async function loadProducts() {
@@ -497,6 +525,60 @@ app.get("*", (req, res) => {
         </div>
       \`;
       toggleProductModal();
+    }
+
+    // Открытие детальной информации о заказе по клику
+    function openOrderDetails(orderId) {
+      const o = allOrders.find(item => String(item.id) === String(orderId));
+      if (!o) return;
+
+      let statusBadgeColor = "bg-yellow-100 text-yellow-800";
+      if (o.status === "Принят") statusBadgeColor = "bg-green-100 text-green-800";
+      if (o.status === "Отклонен") statusBadgeColor = "bg-red-100 text-red-800";
+
+      document.getElementById('orderDetailsContent').innerHTML = \`
+        <div class="space-y-4">
+          <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-xl font-bold text-[#D97706]">Заказ #\${o.id}</h3>
+            <span class="px-3 py-1 rounded-full text-xs font-bold \${statusBadgeColor}">\${o.status || 'Новый'}</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-1">Дата создания: \${o.date}</p>
+            <p class="text-sm"><b>Имя клиента:</b> \${o.name}</p>
+            <p class="text-sm"><b>Телефон:</b> <a href="tel:\${o.phone}" class="text-blue-600 underline">\${o.phone}</a></p>
+            <p class="text-sm"><b>Адрес доставки:</b> \${o.address}</p>
+          </div>
+          <div class="bg-[#F9F6F0] p-4 rounded-xl border">
+            <p class="font-semibold mb-2 text-xs text-gray-500 uppercase">Содержимое заказа:</p>
+            <ul class="space-y-2 text-sm">
+              \${o.items.map(i => \`<li class="flex justify-between border-b pb-1"><span>• \${i.title} (x\${i.quantity})</span> <span class="font-bold">\${i.price * i.quantity} сом</span></li>\`).join('')}
+            </ul>
+            <div class="mt-3 pt-2 border-t font-bold flex justify-between text-base">
+              <span>Итого:</span>
+              <span class="text-[#D97706]">\${o.totalPrice}</span>
+            </div>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button onclick="updateOrderStatus('\${o.id}', 'Принят')" class="flex-1 py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">Принять</button>
+            <button onclick="updateOrderStatus('\${o.id}', 'Отклонен')" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition">Отклонить</button>
+          </div>
+        </div>
+      \`;
+      toggleOrderDetailsModal();
+    }
+
+    async function updateOrderStatus(orderId, status) {
+      const res = await fetch(\`/api/orders/\${orderId}/status\`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        loadOrders();
+        toggleOrderDetailsModal();
+      } else {
+        alert("Ошибка при обновлении статуса");
+      }
     }
 
     function addToCart(id) {
@@ -644,35 +726,39 @@ app.get("*", (req, res) => {
     async function loadOrders() {
       const res = await fetch("/api/orders");
       if (res.ok) {
-        const orders = await res.json();
+        allOrders = await res.json();
         const container = document.getElementById("adminOrdersList");
-        if (orders.length === 0) {
+        if (allOrders.length === 0) {
           container.innerHTML = '<p class="text-gray-500 text-sm">Пока нет ни одного заказа.</p>';
           return;
         }
-        container.innerHTML = orders.map(o => \`
-          <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-2">
-            <div class="flex justify-between items-center border-b pb-2">
-              <span class="font-bold text-[#D97706]">Заказ #\${o.id}</span>
-              <span class="text-xs text-gray-500">\${o.date}</span>
-            </div>
-            <div>
-              <p><b>Имя:</b> \${o.name}</p>
-              <p><b>Телефон:</b> <a href="tel:\${o.phone}" class="text-blue-600 underline">\${o.phone}</a></p>
-              <p><b>Адрес:</b> \${o.address}</p>
-            </div>
-            <div class="bg-white p-3 rounded-lg border">
-              <p class="font-semibold mb-1 text-xs text-gray-500 uppercase">Товары в заказе:</p>
-              <ul class="space-y-1">
-                \${o.items.map(i => \`<li>• \${i.title} — \${i.quantity} шт. (\${i.price * i.quantity} сом)</li>\`).join('')}
-              </ul>
-              <div class="mt-2 pt-2 border-t font-bold flex justify-between">
-                <span>Итого к оплате:</span>
-                <span class="text-[#D97706]">\${o.totalPrice}</span>
+        container.innerHTML = allOrders.map(o => {
+          let statusBadgeColor = "bg-yellow-100 text-yellow-800";
+          if (o.status === "Принят") statusBadgeColor = "bg-green-100 text-green-800";
+          if (o.status === "Отклонен") statusBadgeColor = "bg-red-100 text-red-800";
+
+          return \`
+            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-3 cursor-pointer hover:border-[#D97706] transition" onclick="openOrderDetails('\${o.id}')">
+              <div class="flex justify-between items-center border-b pb-2">
+                <span class="font-bold text-[#D97706]">Заказ #\${o.id}</span>
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-bold \${statusBadgeColor}">\${o.status || 'Новый'}</span>
+                  <span class="text-xs text-gray-500">\${o.date}</span>
+                </div>
+              </div>
+              <div class="flex justify-between items-center">
+                <div>
+                  <p><b>Клиент:</b> \${o.name} (\${o.phone})</p>
+                  <p class="text-xs text-gray-500">Товаров: \${o.items.length} шт. | Сумма: <b class="text-[#1A1A1A]">\${o.totalPrice}</b></p>
+                </div>
+                <div class="flex gap-2" onclick="event.stopPropagation()">
+                  <button onclick="updateOrderStatus('\${o.id}', 'Принят')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition">Принять</button>
+                  <button onclick="updateOrderStatus('\${o.id}', 'Отклонен')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition">Отклонить</button>
+                </div>
               </div>
             </div>
-          </div>
-        \`).join('');
+          \`;
+        }).join('');
       }
     }
 
@@ -694,43 +780,23 @@ app.get("*", (req, res) => {
       const container = document.getElementById("adminProductList");
       if (!container) return;
       container.innerHTML = products.map(p => \`
-        <div class="flex items-center justify-between bg-white p-3 rounded-lg border">
+        <div class="flex items-center justify-between p-3 bg-gray-50 border rounded-xl text-sm">
           <div class="flex items-center gap-3">
-            <img src="\${p.image}" class="w-10 h-10 object-cover rounded" onerror="this.src='https://via.placeholder.com/40?text=KM'">
+            <img src="\${p.image}" class="w-10 h-10 object-cover rounded-lg" onerror="this.src='https://via.placeholder.com/40'">
             <div>
-              <h4 class="font-bold text-sm">\${p.title}</h4>
-              <p class="text-xs text-gray-500">\${p.price} \${p.unit} • \${p.brand}</p>
+              <p class="font-bold">\${p.title}</p>
+              <p class="text-xs text-gray-500">\${p.price} \${p.unit}</p>
             </div>
           </div>
-          <div class="flex gap-2">
-            <button onclick="editProduct('\${p.id}')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-xs rounded font-medium">Редактировать</button>
-            <button onclick="deleteProduct('\${p.id}')" class="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs rounded font-medium">Удалить</button>
-          </div>
+          <button onclick="deleteProduct('\${p.id}')" class="text-red-500 hover:underline text-xs">Удалить</button>
         </div>
       \`).join('');
     }
 
-    function editProduct(id) {
-      const p = allProducts.find(item => String(item.id) === String(id));
-      if (!p) return;
-      document.getElementById("pId").value = p.id;
-      document.getElementById("pTitle").value = p.title;
-      document.getElementById("pBrand").value = p.brand;
-      document.getElementById("pCores").value = p.cores;
-      document.getElementById("pSection").value = p.section;
-      document.getElementById("pMaterial").value = p.material;
-      document.getElementById("pPrice").value = p.price;
-      document.getElementById("pUnit").value = p.unit;
-      document.getElementById("pDesc").value = p.description || "";
-    }
-
     async function deleteProduct(id) {
-      if (!confirm("Точно удалить этот товар?")) return;
-      const res = await fetch("/api/products/" + id, { method: "DELETE" });
-      if (res.ok) {
-        loadProducts();
-        alert("Товар удален!");
-      }
+      if (!confirm("Удалить этот товар?")) return;
+      const res = await fetch(\`/api/products/\${id}\`, { method: "DELETE" });
+      if (res.ok) loadProducts();
     }
   </script>
 </body>
@@ -738,5 +804,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log("Server is running on port " + PORT);
 });
