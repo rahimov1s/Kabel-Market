@@ -109,13 +109,11 @@ app.post("/api/logout", (req, res) => {
   res.json({ success: true });
 });
 
-// Получение списка заказов (только для админа)
 app.get("/api/orders", checkAuth, (req, res) => {
   const data = getData();
   res.json(data.orders);
 });
 
-// Создание заказа
 app.post("/api/orders", (req, res) => {
   const { name, phone, address, items, totalPrice } = req.body;
   if (!name || !phone || !items || items.length === 0) {
@@ -133,7 +131,7 @@ app.post("/api/orders", (req, res) => {
     totalPrice
   };
 
-  data.orders.unshift(newOrder); // Добавляем новый заказ в начало списка
+  data.orders.unshift(newOrder);
   saveData(data);
   res.json({ success: true, orderId: newOrder.id });
 });
@@ -303,7 +301,6 @@ app.get("*", (req, res) => {
     </div>
   </div>
 
-  <!-- Модальное окно оформления заказа с заполнением данных -->
   <div id="checkoutModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl p-6 w-full max-w-md border border-[#E5E7EB] shadow-xl relative">
       <button onclick="toggleCheckoutModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
@@ -356,13 +353,11 @@ app.get("*", (req, res) => {
           <button onclick="logout()" class="text-sm text-red-500 hover:underline">Выйти</button>
         </div>
         
-        <!-- Вкладки админки -->
         <div class="flex gap-2 border-b mb-6 pb-2">
           <button onclick="switchAdminTab('products')" id="tabProductsBtn" class="px-4 py-2 font-bold text-sm bg-[#D97706] text-white rounded-lg transition">Товары</button>
           <button onclick="switchAdminTab('orders')" id="tabOrdersBtn" class="px-4 py-2 font-bold text-sm bg-gray-100 text-gray-700 rounded-lg transition">📦 Заказы</button>
         </div>
 
-        <!-- Секция товаров -->
         <div id="adminProductsTab">
           <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4 mb-8 bg-[#F9F6F0] p-4 rounded-xl">
             <input type="hidden" id="pId">
@@ -392,7 +387,6 @@ app.get("*", (req, res) => {
           <div id="adminProductList" class="space-y-2"></div>
         </div>
 
-        <!-- Секция заказов -->
         <div id="adminOrdersTab" class="hidden">
           <h3 class="font-bold mb-4">Список поступивших заказов</h3>
           <div id="adminOrdersList" class="space-y-4"></div>
@@ -454,27 +448,27 @@ app.get("*", (req, res) => {
       const res = await fetch("/api/products?" + new URLSearchParams({ search, brand, cores, material }));
       allProducts = await res.json();
       
-      document.getElementById("productsGrid").innerHTML = allProducts.map(p => `
+      document.getElementById("productsGrid").innerHTML = allProducts.map(p => \`
         <div class="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
-          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails('${p.id}')">
-            <img src="${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
+          <div class="h-48 bg-[#F9F6F0] flex items-center justify-center overflow-hidden cursor-pointer" onclick="openProductDetails('\${p.id}')">
+            <img src="\${p.image}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           </div>
           <div class="p-5 flex-1 flex flex-col justify-between">
             <div>
-              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">${p.material} • ${p.brand}</span>
-              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails('${p.id}')">${p.title}</h3>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">${p.description || ''}</p>
+              <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand}</span>
+              <h3 class="text-lg font-bold text-[#1A1A1A] mt-1 cursor-pointer hover:text-[#D97706]" onclick="openProductDetails('\${p.id}')">\${p.title}</h3>
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">\${p.description || ''}</p>
             </div>
             <div class="mt-4 flex items-baseline justify-between pt-3 border-t">
               <div>
-                <span class="text-2xl font-black text-[#1A1A1A]">${p.price}</span>
-                <span class="text-sm text-gray-500"> ${p.unit}</span>
+                <span class="text-2xl font-black text-[#1A1A1A]">\${p.price}</span>
+                <span class="text-sm text-gray-500"> \${p.unit}</span>
               </div>
-              <button onclick="addToCart('${p.id}')" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
+              <button onclick="addToCart('\${p.id}')" class="bg-[#D97706] text-white px-3 py-1.5 rounded-lg text-sm hover:bg-[#B45309] transition font-medium">В корзину</button>
             </div>
           </div>
         </div>
-      `).join("");
+      \`).join("");
       if (isAdmin) renderAdminList(allProducts);
     }
 
@@ -482,26 +476,26 @@ app.get("*", (req, res) => {
       const p = allProducts.find(item => String(item.id) === String(id));
       if (!p) return;
       
-      document.getElementById('modalProductContent').innerHTML = `
+      document.getElementById('modalProductContent').innerHTML = \`
         <div class="space-y-4">
-          <img src="${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
+          <img src="\${p.image}" class="w-full h-56 object-cover rounded-xl bg-[#F9F6F0]" onerror="this.src='https://via.placeholder.com/300x200?text=Товар'">
           <div>
-            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">${p.material} • ${p.brand} • Характеристика/Цоколь: ${p.section}</span>
-            <h2 class="text-2xl font-bold text-[#1A1A1A] mt-1">${p.title}</h2>
+            <span class="text-xs font-semibold uppercase tracking-wider text-[#D97706]">\${p.material} • \${p.brand} • Характеристика/Цоколь: \${p.section}</span>
+            <h2 class="text-2xl font-bold text-[#1A1A1A] mt-1">\${p.title}</h2>
           </div>
           <div class="bg-[#F9F6F0] p-4 rounded-xl">
             <h4 class="font-bold text-sm mb-1">Описание и назначение:</h4>
-            <p class="text-sm text-gray-600">${p.description || 'Описание отсутствует'}</p>
+            <p class="text-sm text-gray-600">\${p.description || 'Описание отсутствует'}</p>
           </div>
           <div class="flex items-center justify-between pt-2">
             <div>
-              <span class="text-3xl font-black text-[#1A1A1A]">${p.price}</span>
-              <span class="text-sm text-gray-500"> ${p.unit}</span>
+              <span class="text-3xl font-black text-[#1A1A1A]">\${p.price}</span>
+              <span class="text-sm text-gray-500"> \${p.unit}</span>
             </div>
-            <button onclick="addToCart('${p.id}'); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
+            <button onclick="addToCart('\${p.id}'); toggleProductModal();" class="bg-[#D97706] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#B45309] transition">Добавить в корзину</button>
           </div>
         </div>
-      `;
+      \`;
       toggleProductModal();
     }
 
@@ -542,7 +536,7 @@ app.get("*", (req, res) => {
     function renderCart() {
       const list = document.getElementById('cartItemsList');
       if (cart.length === 0) {
-        list.innerHTML = \`<p class="text-center text-gray-500 py-8">Ваша корзина пуста</p>\`;
+        list.innerHTML = '<p class="text-center text-gray-500 py-8">Ваша корзина пуста</p>';
         document.getElementById('cartTotalPrice').innerText = '0 сом';
         return;
       }
@@ -550,22 +544,22 @@ app.get("*", (req, res) => {
       list.innerHTML = cart.map(item => {
         let itemSum = item.price * item.quantity;
         total += itemSum;
-        return `
+        return \`
           <div class="flex items-center justify-between py-3">
             <div>
-              <h4 class="font-bold text-sm">${item.title}</h4>
-              <p class="text-xs text-gray-500">${item.price} ${item.unit} за ед.</p>
+              <h4 class="font-bold text-sm">\${item.title}</h4>
+              <p class="text-xs text-gray-500">\${item.price} \${item.unit} за ед.</p>
             </div>
             <div class="flex items-center gap-3">
               <div class="flex items-center border rounded-lg overflow-hidden bg-[#F9F6F0]">
-                <button onclick="changeQuantity('${item.id}', -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
-                <span class="px-3 text-sm font-semibold">${item.quantity}</span>
-                <button onclick="changeQuantity('${item.id}', 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
+                <button onclick="changeQuantity('\${item.id}', -1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">-</button>
+                <span class="px-3 text-sm font-semibold">\${item.quantity}</span>
+                <button onclick="changeQuantity('\${item.id}', 1)" class="px-2.5 py-1 text-sm font-bold hover:bg-gray-200">+</button>
               </div>
-              <span class="font-bold text-sm min-w-[70px] text-right">${itemSum.toFixed(2)} сом</span>
+              <span class="font-bold text-sm min-w-[70px] text-right">\${itemSum.toFixed(2)} сом</span>
             </div>
           </div>
-        `;
+        \`;
       }).join('');
       document.getElementById('cartTotalPrice').innerText = total.toFixed(2) + ' сом';
     }
@@ -656,29 +650,29 @@ app.get("*", (req, res) => {
           container.innerHTML = '<p class="text-gray-500 text-sm">Пока нет ни одного заказа.</p>';
           return;
         }
-        container.innerHTML = orders.map(o => `
+        container.innerHTML = orders.map(o => \`
           <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm space-y-2">
             <div class="flex justify-between items-center border-b pb-2">
-              <span class="font-bold text-[#D97706]">Заказ #${o.id}</span>
-              <span class="text-xs text-gray-500">${o.date}</span>
+              <span class="font-bold text-[#D97706]">Заказ #\${o.id}</span>
+              <span class="text-xs text-gray-500">\${o.date}</span>
             </div>
             <div>
-              <p><b>Имя:</b> ${o.name}</p>
-              <p><b>Телефон:</b> <a href="tel:${o.phone}" class="text-blue-600 underline">${o.phone}</a></p>
-              <p><b>Адрес:</b> ${o.address}</p>
+              <p><b>Имя:</b> \${o.name}</p>
+              <p><b>Телефон:</b> <a href="tel:\${o.phone}" class="text-blue-600 underline">\${o.phone}</a></p>
+              <p><b>Адрес:</b> \${o.address}</p>
             </div>
             <div class="bg-white p-3 rounded-lg border">
               <p class="font-semibold mb-1 text-xs text-gray-500 uppercase">Товары в заказе:</p>
               <ul class="space-y-1">
-                ${o.items.map(i => `<li>• ${i.title} — ${i.quantity} шт. (${i.price * i.quantity} сом)</li>`).join('')}
+                \${o.items.map(i => \`<li>• \${i.title} — \${i.quantity} шт. (\${i.price * i.quantity} сом)</li>\`).join('')}
               </ul>
               <div class="mt-2 pt-2 border-t font-bold flex justify-between">
                 <span>Итого к оплате:</span>
-                <span class="text-[#D97706]">${o.totalPrice}</span>
+                <span class="text-[#D97706]">\${o.totalPrice}</span>
               </div>
             </div>
           </div>
-        `).join('');
+        \`).join('');
       }
     }
 
@@ -696,7 +690,29 @@ app.get("*", (req, res) => {
       }
     }
 
-    function editProduct(p) {
+    function renderAdminList(products) {
+      const container = document.getElementById("adminProductList");
+      if (!container) return;
+      container.innerHTML = products.map(p => \`
+        <div class="flex items-center justify-between bg-white p-3 rounded-lg border">
+          <div class="flex items-center gap-3">
+            <img src="\${p.image}" class="w-10 h-10 object-cover rounded" onerror="this.src='https://via.placeholder.com/40?text=KM'">
+            <div>
+              <h4 class="font-bold text-sm">\${p.title}</h4>
+              <p class="text-xs text-gray-500">\${p.price} \${p.unit} • \${p.brand}</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="editProduct('\${p.id}')" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-xs rounded font-medium">Редактировать</button>
+            <button onclick="deleteProduct('\${p.id}')" class="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs rounded font-medium">Удалить</button>
+          </div>
+        </div>
+      \`).join('');
+    }
+
+    function editProduct(id) {
+      const p = allProducts.find(item => String(item.id) === String(id));
+      if (!p) return;
       document.getElementById("pId").value = p.id;
       document.getElementById("pTitle").value = p.title;
       document.getElementById("pBrand").value = p.brand;
@@ -709,28 +725,18 @@ app.get("*", (req, res) => {
     }
 
     async function deleteProduct(id) {
-      if (confirm("Удалить товар?")) {
-        await fetch("/api/products/" + id, { method: "DELETE" });
+      if (!confirm("Точно удалить этот товар?")) return;
+      const res = await fetch("/api/products/" + id, { method: "DELETE" });
+      if (res.ok) {
         loadProducts();
+        alert("Товар удален!");
       }
     }
-
-    function renderAdminList(products) {
-      document.getElementById("adminProductList").innerHTML = products.map(p => `
-        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border text-sm">
-          <span>${p.title} - <b>${p.price} ${p.unit}</b></span>
-          <div class="flex gap-2">
-            <button onclick='editProduct(${JSON.stringify(p)})' class="text-blue-600 hover:underline">Изм.</button>
-            <button onclick="deleteProduct('${p.id}')" class="text-red-600 hover:underline">Уд.</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    loadProducts();
   </script>
 </body>
 </html>`);
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log('Сайт запущен на http://localhost:' + PORT));
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
